@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reading Log</title>
+    <style>
+        :root {
+            --bg-light-gray: #f3f4f6; --text-dark: #374151; --text-darker: #1f2937;
+            --text-gray: #6b7280; --border-gray: #d1d5db; --bg-gray-hover: #e5e7eb;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-light-gray); color: var(--text-dark); margin: 0; padding: 1rem; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .page { display: none; } .page.active { display: block; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .page-title { font-size: 1.8rem; font-weight: 700; color: var(--text-darker); }
+        .menu-container { position: relative; }
+        .menu-button { background: white; border: none; border-radius: 9999px; padding: 0.75rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; transition: background-color 0.2s; display: flex; align-items: center; justify-content: center; }
+        .menu-button:hover { background-color: var(--bg-gray-hover); }
+        .dropdown-menu { display: none; position: absolute; top: calc(100% + 5px); right: 0; background-color: white; border-radius: 0.5rem; box-shadow: 0 10px 15px rgba(0,0,0,0.1); min-width: 180px; z-index: 10; overflow: hidden; }
+        .dropdown-menu a { display: block; padding: 0.75rem 1rem; text-decoration: none; color: var(--text-dark); transition: background-color 0.2s; }
+        .dropdown-menu a:hover { background-color: var(--bg-light-gray); }
+
+        /* --- Category Filter Styles --- */
+        #category-filters-container { margin-bottom: 2rem; }
+        #category-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        .category-btn { background-color: white; border: 1px solid var(--border-gray); border-radius: 9999px; padding: 0.5rem 1rem; font-size: 0.875rem; cursor: pointer; transition: all 0.2s; }
+        .category-btn:hover { border-color: var(--text-dark); }
+        .category-btn.active { background-color: var(--text-dark); color: white; border-color: var(--text-dark); }
+
+        /* --- Book Card Styles --- */
+        .month-section { margin-bottom: 3rem; }
+        .month-title { font-size: 1.25rem; font-weight: 600; color: var(--text-gray); margin-bottom: 1rem; border-bottom: 1px solid var(--border-gray); padding-bottom: 0.5rem; }
+        .books-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1.5rem; }
+        .book-card { position: relative; background-color: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; transition: transform 0.3s, box-shadow 0.3s; }
+        .book-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
+        .book-cover { width: 100%; height: 270px; object-fit: cover; background-color: var(--bg-gray-hover); cursor: pointer; }
+        .book-info { padding: 1rem; }
+        .book-title { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .book-author { font-size: 0.875rem; color: var(--text-gray); }
+        .star-rating { color: #facc15; margin-top: 0.5rem; }
+        .book-overlay { position: absolute; inset: 0; background-color: rgba(0,0,0,0.7); color: white; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; opacity: 0; transition: opacity 0.3s; padding: 1rem; text-align: center; pointer-events: none; }
+        .book-card:hover .book-overlay { opacity: 1; }
+        .overlay-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 0.5rem; pointer-events: all; }
+        .action-btn { background: rgba(255,255,255,0.2); border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s; }
+        .action-btn:hover { background: rgba(255,255,255,0.4); }
+        .action-btn svg { width: 16px; height: 16px; color: white; fill: currentColor; }
+        .overlay-details { margin-bottom: 1rem; }
+
+        /* --- Modal & Form Styles --- */
+        .modal-overlay { position: fixed; inset: 0; background-color: rgba(0,0,0,0.6); z-index: 50; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; }
+        .modal-overlay.visible { opacity: 1; visibility: visible; }
+        .modal-content { background: white; padding: 2rem; border-radius: 0.5rem; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; transform: scale(0.95); transition: transform 0.3s; }
+        .modal-overlay.visible .modal-content { transform: scale(1); }
+        #notes-modal-content { white-space: pre-wrap; line-height: 1.6; }
+        .modal-title { margin-top: 0; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 0.75rem; border: 1px solid var(--border-gray); border-radius: 0.375rem; box-sizing: border-box; }
+        .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem; }
+        .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; font-weight: 600; cursor: pointer; }
+        .btn-primary { background-color: var(--text-dark); color: white; } .btn-primary:hover { background-color: var(--text-darker); }
+        .btn-secondary { background-color: var(--bg-gray-hover); color: var(--text-dark); } .btn-secondary:hover { background-color: var(--border-gray); }
+
+        /* --- Stats & Messages --- */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+        .stats-card { background: white; padding: 1.5rem; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .stats-value { font-size: 2.25rem; font-weight: bold; color: var(--text-darker); }
+        .stats-label { color: var(--text-gray); }
+        .no-books-message { text-align: center; padding: 3rem; color: var(--text-gray); }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1 id="page-title" class="page-title">Reading Log</h1>
+            <div class="menu-container">
+                <button id="menu-button" class="menu-button" aria-label="Open menu"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
+                <div id="dropdown-menu" class="dropdown-menu">
+                    <a href="#" id="menu-home">Home</a><a href="#" id="menu-add">Add New Record</a><a href="#" id="menu-stats">Statistics</a>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div id="category-filters-container">
+                 <div id="category-filters"></div>
+            </div>
+            <div id="home-page" class="page active"></div>
+            <div id="stats-page" class="page"></div>
+        </main>
+    </div>
+
+    <!-- Modals (dynamically filled by JS) -->
+    <div id="book-modal" class="modal-overlay"></div>
+    <div id="notes-modal" class="modal-overlay"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const STORAGE_KEY = 'readingLog_books_v4';
+
+    const mockBooks = [
+        { id: '1', title: 'Project Hail Mary', author: 'Andy Weir', readDate: '2023-11-15', category: 'Science Fiction', rating: 5, notes: 'An amazing hard sci-fi with a lot of heart.\nThe relationship between Grace and Rocky is unforgettable.', coverUrl: 'https://images-na.ssl-images-amazon.com/images/S/compressed.photo.goodreads.com/books/1597695864l/54493401.jpg', purchaseLink: '' },
+        { id: '2', title: 'The Silent Patient', author: 'Alex Michaelides', readDate: '2023-11-02', category: 'Thriller', rating: 4, notes: 'The twist at the end was completely unexpected!', coverUrl: 'https://images-na.ssl-images-amazon.com/images/S/compressed.photo.goodreads.com/books/1668783433l/40097951.jpg', purchaseLink: '' },
+        { id: '3', title: 'Atomic Habits', author: 'James Clear', readDate: '2023-10-05', category: 'Self-Help', rating: 5, notes: 'Practical and life-changing advice.', coverUrl: 'https://images-na.ssl-images-amazon.com/images/S/compressed.photo.goodreads.com/books/1655988385l/40121378.jpg', purchaseLink: '' }
+    ];
+
+    // --- DOM Elements ---
+    const homePageEl = document.getElementById('home-page');
+    const statsPageEl = document.getElementById('stats-page');
+    const pageTitleEl = document.getElementById('page-title');
+    const menuButton = document.getElementById('menu-button');
+    const dropdownMenu = document.getElementById('dropdown-menu');
+    const categoryFiltersContainer = document.getElementById('category-filters-container');
+    const categoryFiltersEl = document.getElementById('category-filters');
+    const bookModalEl = document.getElementById('book-modal');
+    const notesModalEl = document.getElementById('notes-modal');
+
+    // --- App State ---
+    let books = [];
+    let currentCategoryFilter = 'All';
+
+    // --- Data Functions ---
+    const getBooks = () => JSON.parse(localStorage.getItem(STORAGE_KEY));
+    const saveBooks = (booksToSave) => localStorage.setItem(STORAGE_KEY, JSON.stringify(booksToSave));
+
+    // --- RENDER FUNCTIONS ---
+    const renderCategoryFilters = () => {
+        const categories = ['All', ...new Set(books.map(b => b.category).filter(Boolean))];
+        categoryFiltersEl.innerHTML = categories.map(cat =>
+            `<button class="category-btn ${cat === currentCategoryFilter ? 'active' : ''}" data-category="${cat}">${cat}</button>`
+        ).join('');
+    };
+
+    const renderHomePage = () => {
+        const filteredBooks = currentCategoryFilter === 'All' ? books : books.filter(b => b.category === currentCategoryFilter);
+        homePageEl.innerHTML = '';
+        if (filteredBooks.length === 0) {
+            homePageEl.innerHTML = `<div class="no-books-message"><h3>No books found.</h3><p>Try selecting another category or adding a new book!</p></div>`; return;
+        }
+
+        const groupedByMonth = filteredBooks.reduce((acc, book) => {
+            const month = new Date(book.readDate).toLocaleString('en-US', { year: 'numeric', month: 'long' });
+            if (!acc[month]) acc[month] = []; acc[month].push(book); return acc;
+        }, {});
+
+        Object.keys(groupedByMonth).sort((a, b) => new Date(b) - new Date(a)).forEach(month => {
+            const monthSection = document.createElement('section');
+            monthSection.className = 'month-section';
+            const grid = document.createElement('div');
+            grid.className = 'books-grid';
+            monthSection.innerHTML = `<h2 class="month-title">${month}</h2>`;
+
+            groupedByMonth[month].sort((a,b) => new Date(b.readDate) - new Date(a.readDate)).forEach(book => {
+                grid.innerHTML += `
+                    <div class="book-card" data-id="${book.id}">
+                        <img src="${book.coverUrl || 'https://via.placeholder.com/180x270.png?text=No+Cover'}" alt="${book.title}" class="book-cover" onerror="this.onerror=null;this.src='https://via.placeholder.com/180x270.png?text=Img+Error';">
+                        <div class="book-info">
+                            <h3 class="book-title" title="${book.title}">${book.title}</h3><p class="book-author">${book.author}</p><div class="star-rating">${'★'.repeat(book.rating)}${'☆'.repeat(5 - book.rating)}</div>
+                        </div>
+                        <div class="book-overlay">
+                            <div class="overlay-actions">
+                                <button class="action-btn edit-btn" title="Edit"><svg viewBox="0 0 20 20"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"></path><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"></path></svg></button>
+                                <button class="action-btn delete-btn" title="Delete"><svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"></path></svg></button>
+                            </div><div class="overlay-details"><p>Read: ${book.readDate}</p></div>
+                        </div></div>`;
+            });
+            monthSection.appendChild(grid); homePageEl.appendChild(monthSection);
+        });
+    };
+
+    const renderStatsPage = () => { // ** RE-ADDED FUNCTION **
+        const now = new Date();
+        const thisMonthBooks = books.filter(b => new Date(b.readDate).getFullYear() === now.getFullYear() && new Date(b.readDate).getMonth() === now.getMonth()).length;
+        const thisYearBooks = books.filter(b => new Date(b.readDate).getFullYear() === now.getFullYear()).length;
+        const avgRating = books.length ? (books.reduce((sum, b) => sum + Number(b.rating), 0) / books.length).toFixed(1) : 'N/A';
+        statsPageEl.innerHTML = `
+            <div class="stats-grid">
+                <div class="stats-card"><div class="stats-value">${thisMonthBooks}</div><div class="stats-label">Books Read This Month</div></div>
+                <div class="stats-card"><div class="stats-value">${thisYearBooks}</div><div class="stats-label">Books Read This Year</div></div>
+                <div class="stats-card"><div class="stats-value">${books.length}</div><div class="stats-label">Total Books Logged</div></div>
+                <div class="stats-card"><div class="stats-value">${avgRating} ★</div><div class="stats-label">Average Rating</div></div>
+            </div>`;
+    };
+
+    // --- Dynamic Modal HTML Injection ---
+    const createModals = () => {
+        bookModalEl.innerHTML = `<div class="modal-content">
+            <h2 id="modal-title" class="modal-title">Add New Record</h2><form id="book-form">
+            <input type="hidden" id="book-id"><div class="form-group"><label for="title">Book Title</label><input type="text" id="title" required></div>
+            <div class="form-group"><label for="author">Author</label><input type="text" id="author" required></div><div class="form-group"><label for="readDate">Read Date</label><input type="date" id="readDate" required></div>
+            <div class="form-group"><label for="category">Category</label><input type="text" id="category" placeholder="e.g. Science Fiction, Thriller..."></div>
+            <div class="form-group"><label for="rating">Rating (1-5)</label><select id="rating" required><option value="5">★★★★★</option><option value="4">★★★★☆</option><option value="3">★★★☆☆</option><option value="2">★★☆☆☆</option><option value="1">★☆☆☆☆</option></select></div>
+            <div class="form-group"><label for="coverUrl">Cover Image URL</label><input type="text" id="coverUrl" placeholder="https://..."></div>
+            <div class="form-group"><label for="purchaseLink">Purchase Link</label><input type="text" id="purchaseLink" placeholder="https://..."></div>
+            <div class="form-group"><label for="notes">Notes</label><textarea id="notes" rows="3"></textarea></div><div class="form-actions"><button type="button" class="btn btn-secondary" id="cancel-btn">Cancel</button><button type="submit" class="btn btn-primary">Save Record</button></div>
+            </form></div>`;
+        notesModalEl.innerHTML = `<div class="modal-content">
+            <h3 id="notes-modal-title" class="modal-title">Reading Notes</h3><hr style="border: none; border-top: 1px solid var(--bg-gray-hover); margin: 1rem 0;"><p id="notes-modal-content"></p>
+            </div>`;
+    };
+
+    // --- NAVIGATION & MODALS ---
+    const showPage = (pageId) => {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        categoryFiltersContainer.style.display = pageId === 'home-page' ? 'block' : 'none'; // Show/hide filters
+        pageTitleEl.textContent = pageId === 'home-page' ? 'Reading Log' : 'Statistics';
+    };
+    const openBookModal = (bookToEdit = null) => {
+        const form = document.getElementById('book-form'); form.reset(); document.getElementById('book-id').value = '';
+        if (bookToEdit) {
+            document.getElementById('modal-title').textContent = 'Edit Record';
+            Object.keys(bookToEdit).forEach(key => { const input = form.querySelector(`#${key}`); if (input) input.value = bookToEdit[key]; });
+        } else {
+            document.getElementById('modal-title').textContent = 'Add New Record'; document.getElementById('readDate').valueAsDate = new Date(); document.getElementById('rating').value = 5;
+        }
+        bookModalEl.classList.add('visible');
+    };
+    const closeBookModal = () => bookModalEl.classList.remove('visible');
+    const openNotesModal = (book) => {
+        document.getElementById('notes-modal-title').textContent = `Notes for: ${book.title}`; document.getElementById('notes-modal-content').textContent = book.notes || 'No notes for this book.'; notesModalEl.classList.add('visible');
+    };
+    const closeNotesModal = () => notesModalEl.classList.remove('visible');
+
+    // --- EVENT LISTENERS ---
+    // Menu
+    menuButton.addEventListener('click', (e) => { e.stopPropagation(); dropdownMenu.style.display = dropdownMenu.style.display === 'block' ? 'none' : 'block'; });
+    document.addEventListener('click', () => { dropdownMenu.style.display = 'none'; });
+    document.getElementById('menu-home').addEventListener('click', (e) => { e.preventDefault(); showPage('home-page'); });
+    document.getElementById('menu-add').addEventListener('click', (e) => { e.preventDefault(); openBookModal(); });
+    document.getElementById('menu-stats').addEventListener('click', (e) => { e.preventDefault(); renderStatsPage(); showPage('stats-page'); }); // ** RE-ADDED LISTENER **
+
+    // Category Filter
+    categoryFiltersEl.addEventListener('click', (e) => {
+        if (e.target.matches('.category-btn')) { currentCategoryFilter = e.target.dataset.category; renderCategoryFilters(); renderHomePage(); }
+    });
+
+    // Main Page Clicks
+    homePageEl.addEventListener('click', (e) => {
+        const card = e.target.closest('.book-card'); if (!card) return;
+        const book = books.find(b => b.id === card.dataset.id); if (!book) return;
+        if (e.target.matches('.book-cover')) { openNotesModal(book); }
+        else if (e.target.closest('.edit-btn')) { openBookModal(book); }
+        else if (e.target.closest('.delete-btn')) {
+            if (confirm(`Delete "${book.title}"?`)) { books = books.filter(b => b.id !== book.id); saveBooks(books); renderCategoryFilters(); renderHomePage(); }
+        }
+    });
+
+    // Modals
+    bookModalEl.addEventListener('submit', (e) => {
+        e.preventDefault(); const id = document.getElementById('book-id').value;
+        const bookData = { id: id || Date.now().toString() };
+        ['title', 'author', 'readDate', 'category', 'rating', 'notes', 'coverUrl', 'purchaseLink'].forEach(f => bookData[f] = document.getElementById(f).value.trim());
+        bookData.rating = parseInt(bookData.rating);
+        const index = books.findIndex(b => b.id === id);
+        if (index > -1) { books[index] = bookData; } else { books.push(bookData); }
+        saveBooks(books); renderCategoryFilters(); renderHomePage(); closeBookModal();
+    });
+    bookModalEl.addEventListener('click', (e) => { if (e.target.id === 'book-modal' || e.target.id === 'cancel-btn') closeBookModal(); });
+    notesModalEl.addEventListener('click', (e) => { if (e.target === notesModalEl) closeNotesModal(); });
+
+    // --- INITIAL APP LOAD ---
+    function init() {
+        createModals(); let savedBooks = getBooks();
+        if (!savedBooks) { savedBooks = mockBooks; saveBooks(savedBooks); }
+        books = savedBooks; showPage('home-page'); renderCategoryFilters(); renderHomePage();
+    }
+    init();
+});
+</script>
+</body>
+</html>
